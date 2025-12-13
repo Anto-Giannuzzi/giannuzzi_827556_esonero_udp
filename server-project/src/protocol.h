@@ -16,7 +16,10 @@
  * ============================================================================
  */
 
-// #define ...
+#define SERVER_PORT 56700
+#define DEFAULT_IP "127.0.0.1"
+#define BUFFER_SIZE 512
+#define QUEUE_SIZE 5
 
 /*
  * ============================================================================
@@ -24,7 +27,16 @@
  * ============================================================================
  */
 
-// Weather request and response structures 
+	typedef struct {
+		char type;        // 't', 'h', 'w', 'p'
+		char city[64];    // Nome città
+	} weather_request_t;
+
+	typedef struct {
+		unsigned int status;
+		char type;
+		float value;
+	} weather_response_t;
 
 /*
  * ============================================================================
