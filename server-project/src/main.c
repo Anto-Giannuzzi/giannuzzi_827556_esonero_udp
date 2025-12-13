@@ -190,12 +190,22 @@ int main(int argc, char *argv[]) {
 		weather_response_t response;
 		valida(&request, &response);
 
-		if(response.status == 0) {
-			switch (request.type) {
-				case 't': response.value = get_temperature(); break;
-				case 'h': response.value = get_humidity(); break;
-				case 'w': response.value = get_wind(); break;
-				case 'p': response.value = get_pressure(); break;
+		if(response.status == 0)
+		{
+			switch (request.type)
+			{
+				case 't':
+					response.value = get_temperature();
+				break;
+				case 'h':
+					response.value = get_humidity();
+				break;
+				case 'w':
+					response.value = get_wind();
+				break;
+				case 'p':
+					response.value = get_pressure();
+				break;
 			}
 			response.type = request.type;
 		} else {
