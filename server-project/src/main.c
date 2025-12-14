@@ -29,7 +29,8 @@ typedef int socklen_t;
 #include "protocol.h"
 
 #define NO_ERROR 0
-
+#define BUFFMAX 255
+weather_request_t request;
 
 void clearwinsock() {
 #if defined WIN32
@@ -109,7 +110,32 @@ float get_pressure(void)
 	return random_float(950.0, 1050.0);
 }
 
-int main(int argc, char *argv[]) {
+
+void deserializza(char buffer[BUFFMAX], int rcv_msg_size)
+{
+	if (rcv_msg_size > 0)
+	{
+	        int offset = 0;
+
+
+
+	        memcpy(&request.type, buffer + offset, sizeof(char));
+	        offset += sizeof(char);
+
+
+
+	        memcpy(request.city, buffer + offset, 20);
+	        // Sicurezza: assicurati che la stringa sia terminata se la usi con printf
+	        request.city[19] = '\0';
+	        offset += 20;
+
+	        printf("Ricevuto: Type=%c, City=%s\n",
+	               request.type, request.city);
+	    }
+}
+
+int main(int argc, char *argv[])
+{
 
 	// TODO: Implement server logic
 
@@ -117,13 +143,20 @@ int main(int argc, char *argv[]) {
 	// Initialize Winsock
 	WSADATA wsa_data;
 	int result = WSAStartup(MAKEWORD(2,2), &wsa_data);
-	if (result != NO_ERROR) {
+	if (result != NO_ERROR)
+	{
 		printf("Error at WSAStartup()\n");
 		return 0;
 	}
 #endif
 
-	int my_socket;
+
+	int port = SERVER_PORT;
+	if (argc > 2 && strcmp(argv[1], "-p") == 0)
+	{
+		port = atoi(argv[2]);
+	}
+
 
 	// TODO: Create UDP socket
 
@@ -132,93 +165,112 @@ int main(int argc, char *argv[]) {
 	// TODO: Bind socket
 
 	// TODO: Implement UDP datagram reception loop 
-	int port = SERVER_PORT;
-	if (argc > 2 && strcmp(argv[1], "-p") == 0) {
-		port = atoi(argv[2]);
-	}
 
-	int my_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (my_socket < 0) {
-		errorhandler("socket creation failed.\n");
-		clearwinsock();
-		return -1;
-	}
 
-	struct sockaddr_in sad;
-	memset(&sad, 0, sizeof(sad));
-	sad.sin_family = AF_INET;
-	sad.sin_addr.s_addr = htonl(INADDR_ANY);
-	sad.sin_port = htons(port);
+	int my_socket;
 
-	if (bind(my_socket, (struct sockaddr*) &sad, sizeof(sad)) < 0) {
-		errorhandler("bind() failed.\n");
-		closesocket(my_socket);
-		clearwinsock();
-		return -1;
-	}
-
-	if (listen(my_socket, QUEUE_SIZE) < 0) {
-		errorhandler("listen() failed.\n");
-		closesocket(my_socket);
-		clearwinsock();
-		return -1;
-	}
-
-	struct sockaddr_in cad;
-	int client_socket;
-	int client_len;
-
-	srand(time(NULL));
-	printf("Server in ascolto sulla porta %d...\n", port);
-
-	while (1) {
-		client_len = sizeof(cad);
-
-		if ((client_socket = accept(my_socket, (struct sockaddr*) &cad, (socklen_t*)&client_len)) < 0) {
-			errorhandler("accept() failed.\n");
-			continue;
-		}
-
-		weather_request_t request;
-		if (recv(client_socket, (char*)&request, sizeof(request), 0) <= 0) {
-			closesocket(client_socket);
-			continue;
-		}
-
-		printf("Richiesta '%c %s' dal client ip %s\n", request.type, request.city, inet_ntoa(cad.sin_addr));
-
-		weather_response_t response;
-		valida(&request, &response);
-
-		if(response.status == 0)
+		/* create a UDP socket */
+		if ((my_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
 		{
-			switch (request.type)
+			errorhandler("Error creating socket");
+			clearwinsock();
+			return -1;
+		}
+
+		/* set the server address */
+		struct sockaddr_in sad;
+		struct sockaddr_in cad;
+		unsigned int client_address_length = sizeof(cad);
+		memset(&sad, 0, sizeof(sad));
+		sad.sin_family = AF_INET;
+		sad.sin_port = htons(port);
+		sad.sin_addr.s_addr = inet_addr(INADDR_ANY);
+
+		/* set server address */
+		if ((bind(my_socket, (struct sockaddr *)&sad,
+				  sizeof(sad))) < 0)
+		{
+			errorhandler("bind() failed");
+			closesocket(my_socket);
+			clearwinsock();
+			return -1;
+		}
+
+		char buffer[BUFFMAX];
+		int rcv_msg_size;
+		while (1)
+		{
+			puts("\nServer listening...");
+			/* clean buffer */
+			memset(buffer, 0, BUFFMAX);
+			/* receive message from client */
+			/*if ((rcv_msg_size = recvfrom(my_socket, buffer, BUFFMAX, 0,
+										 (struct sockaddr *)&cad, &client_address_length)) < 0)
 			{
-				case 't':
-					response.value = get_temperature();
-				break;
-				case 'h':
-					response.value = get_humidity();
-				break;
-				case 'w':
-					response.value = get_wind();
-				break;
-				case 'p':
-					response.value = get_pressure();
-				break;
+				errorhandler("recvfrom() Helo failed");
+				closesocket(my_socket);
+				clearwinsock();
+				return -1;
 			}
-			response.type = request.type;
-		} else {
-			response.type = '\0';
-			response.value = 0.0;
+			struct hostent *client_host = gethostbyaddr((char *)&cad.sin_addr.s_addr, sizeof(cad.sin_addr.s_addr), AF_INET);
+			printf("Received '%s' from client %s (IP %s, port %d)\n", buffer, client_host->h_name, inet_ntoa(cad.sin_addr), ntohs(cad.sin_port));
+*/
+			/* receive data from the client */
+			memset(buffer, 0, BUFFMAX);
+			if ((rcv_msg_size = recvfrom(my_socket, buffer, BUFFMAX, 0,
+										 (struct sockaddr *)&cad, &client_address_length)) < 0)
+			{
+				errorhandler("recvfrom() data failed");
+				closesocket(my_socket);
+				clearwinsock();
+				return -1;
+			}
+
+			printf("Richiesta ricevuta da localhost (%s): type='%c', city='%s'");
+
+			weather_response_t response;
+			valida(&request, &response);
+
+			if(response.status == 0)
+			{
+				switch (request.type)
+				{
+					case 't':
+						response.value = get_temperature();
+					break;
+					case 'h':
+						response.value = get_humidity();
+					break;
+					case 'w':
+						response.value = get_wind();
+					break;
+					case 'p':
+						response.value = get_pressure();
+					break;
+				}
+				response.type = request.type;
+			}else
+			{
+				response.type = '\0';
+				response.value = 0.0;
+
+
+				/* remove vowels from buffer and send it back to the client */
+
+
+				printf("Sending '%s' back to client\n", buffer);
+				if (sendto(my_socket, buffer, strlen(buffer), 0,
+						   (struct sockaddr *)&cad, sizeof(cad)) != strlen(buffer))
+				{
+					errorhandler("sendto() sent a different number of bytes than expected");
+					closesocket(my_socket);
+					clearwinsock();
+					return -1;
+				}
+			}
 		}
 
-		if (send(client_socket, (char*)&response, sizeof(response), 0) != sizeof(response)) {
-			errorhandler("send() failed");
-		}
 
-		closesocket(client_socket);
-	}
 
 	printf("Server terminated.\n");
 
