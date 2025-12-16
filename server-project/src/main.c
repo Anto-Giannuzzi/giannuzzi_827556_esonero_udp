@@ -39,7 +39,8 @@ typedef int socklen_t;
 weather_request_t request;
 weather_response_t response;
 
-void clearwinsock() {
+void clearwinsock()
+{
 #if defined WIN32
 	WSACleanup();
 #endif
@@ -65,7 +66,8 @@ static const char *SUPPORTED_CITIES[] =
 };
 
 
-float random_float(float min, float max) {
+float random_float(float min, float max)
+{
 	float scale = rand() / (float) RAND_MAX;
 	return min + scale * (max - min);
 }
@@ -118,33 +120,10 @@ float get_pressure(void)
 }
 
 
-/*void deserializza(char buffer[BUFFMAX], int rcv_msg_size)
-{
-	if (rcv_msg_size > 0)
-	{
-	        int offset = 0;
-
-
-
-	        memcpy(&request.type, buffer + offset, sizeof(char));
-	        offset += sizeof(char);
-
-
-
-	        memcpy(request.city, buffer + offset, 20);
-	        // Sicurezza: assicurati che la stringa sia terminata se la usi con printf
-	        request.city[19] = '\0';
-	        offset += 20;
-
-	        printf("Ricevuto: Type=%c, City=%s\n",
-	               request.type, request.city);
-	    }
-}*/
 
 int main(int argc, char *argv[])
 {
 
-	// TODO: Implement server logic
 
 	srand(time(NULL));
 
@@ -154,7 +133,7 @@ int main(int argc, char *argv[])
 	int result = WSAStartup(MAKEWORD(2,2), &wsa_data);
 	if (result != NO_ERROR)
 	{
-		printf("Error at WSAStartup()\n");
+		printf("Errore a WSAStartup()\n");
 		return 0;
 	}
 #endif
@@ -167,26 +146,15 @@ int main(int argc, char *argv[])
 	}
 
 
-	// TODO: Create UDP socket
-
-	// TODO: Configure server address
-	
-	// TODO: Bind socket
-
-	// TODO: Implement UDP datagram reception loop 
-
-
 	int my_socket;
 
-	/* create a UDP socket */
 	if ((my_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
 	{
-		errorhandler("Error creating socket");
+		errorhandler("Errore nella creazione della socket");
 		clearwinsock();
 		return -1;
 	}
 
-	/* set the server address */
 	struct sockaddr_in sad;
 
 	memset(&sad, 0, sizeof(sad));
@@ -194,11 +162,10 @@ int main(int argc, char *argv[])
 	sad.sin_port = htons(port);
 	sad.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	/* set server address */
 	if ((bind(my_socket, (struct sockaddr *)&sad,
 			  sizeof(sad))) < 0)
 	{
-		errorhandler("bind() failed");
+		errorhandler("bind() ha fallito");
 		closesocket(my_socket);
 		clearwinsock();
 		return -1;
@@ -206,53 +173,45 @@ int main(int argc, char *argv[])
 
 	char buffer_in[BUFFER_SIZE];
 	    char buffer_out[BUFFER_SIZE];
-	    struct sockaddr_in cad; // Client Address
+	    struct sockaddr_in cad;
 	    int client_len = sizeof(cad);
 	    int rcv_msg_size;
 
-	    puts("\nServer in ascolto..."); // Messaggio iniziale generico
+	    puts("\nServer in ascolto...");
 
 	    while (1)
 	    {
-	        // Pulizia strutture per ogni iterazione
+
 	        memset(&request, 0, sizeof(request));
 	        memset(&response, 0, sizeof(response));
 	        memset(buffer_in, 0, BUFFER_SIZE);
 
-	        // A. RICEZIONE DATAGRAMMA
-	        client_len = sizeof(cad); // Reset lunghezza
-	        if ((rcv_msg_size = recvfrom(my_socket, buffer_in, BUFFER_SIZE, 0,
-	                                     (struct sockaddr *)&cad, &client_len)) < 0)
+
+	        client_len = sizeof(cad);
+	        if ((rcv_msg_size = recvfrom(my_socket, buffer_in, BUFFER_SIZE, 0,(struct sockaddr *)&cad, &client_len)) < 0)
 	        {
-	            errorhandler("recvfrom() failed");
-	            continue; // Non terminare il server, prova prossima richiesta
+	            errorhandler("recvfrom() ha fallito");
+	            continue;
 	        }
 
-	        // B. DESERIALIZZAZIONE MANUALE (Richiesta)
 	        int offset = 0;
 
-	        // 1. Leggi Type (1 byte)
 	        memcpy(&request.type, buffer_in + offset, sizeof(char));
 	        offset += sizeof(char);
 
-	        // 2. Leggi City (copia il resto come stringa)
-	        // Calcoliamo quanto resta nel buffer ricevuto
 	        int city_len = rcv_msg_size - offset;
-	        if (city_len > 63) city_len = 63; // Protezione buffer overflow
+	        if (city_len > 63) city_len = 63;
 	        if (city_len < 0) city_len = 0;
 
 	        memcpy(request.city, buffer_in + offset, city_len);
-	        request.city[city_len] = '\0'; // Assicura null-termination
+	        request.city[city_len] = '\0';
 
-	        // C. LOGGING (Reverse DNS Lookup)
 	        char host_name[256];
 	        char client_ip[INET_ADDRSTRLEN];
 
-	        // IP to String
 	        char *temp_ip = inet_ntoa(cad.sin_addr);
 	        strncpy(client_ip, temp_ip, INET_ADDRSTRLEN);
 
-	        // Reverse Lookup
 	        struct hostent *he;
 	        he = gethostbyaddr((char *)&cad.sin_addr, sizeof(cad.sin_addr), AF_INET);
 
@@ -262,17 +221,14 @@ int main(int argc, char *argv[])
 	            strcpy(host_name, client_ip);
 	        }
 
-	        // Stampa Log Richiesto: "Richiesta ricevuta da localhost (ip 127.0.0.1): type='t', city='Roma'"
 	        printf("Richiesta ricevuta da %s (ip %s): type='%c', city='%s'\n",
 	               host_name, client_ip, request.type, request.city);
 
-	        // D. ELABORAZIONE (Business Logic)
 	        valida(&request, &response);
 
-	        // Se la validazione passa (status 0), genera i dati
 	        if(response.status == 0)
 	        {
-	            response.type = request.type; // Echo del tipo
+	            response.type = request.type;
 	            switch (request.type)
 	            {
 	                case 't': response.value = get_temperature(); break;
@@ -283,24 +239,21 @@ int main(int argc, char *argv[])
 	        }
 	        else
 	        {
-	            // In caso di errore, type e value sono irrilevanti ma puliti
+
 	            response.type = request.type;
 	            response.value = 0.0f;
 	        }
-
-	        // E. SERIALIZZAZIONE MANUALE (Risposta)
 	        offset = 0;
 
-	        // 1. Status (uint32 -> htonl)
 	        uint32_t net_status = htonl(response.status);
 	        memcpy(buffer_out + offset, &net_status, sizeof(uint32_t));
 	        offset += sizeof(uint32_t);
 
-	        // 2. Type (char)
+
 	        memcpy(buffer_out + offset, &response.type, sizeof(char));
 	        offset += sizeof(char);
 
-	        // 3. Value (float -> uint32 -> htonl)
+
 	        uint32_t net_val;
 	        memcpy(&net_val, &response.value, sizeof(float));
 	        net_val = htonl(net_val);
@@ -308,7 +261,6 @@ int main(int argc, char *argv[])
 	        offset += sizeof(uint32_t);
 
 
-	        // F. INVIO RISPOSTA
 	        if (sendto(my_socket, buffer_out, offset, 0,
 	                   (struct sockaddr *)&cad, sizeof(cad)) != offset)
 	        {

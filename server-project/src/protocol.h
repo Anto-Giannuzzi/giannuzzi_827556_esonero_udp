@@ -28,8 +28,8 @@
  */
 
 	typedef struct {
-		char type;        // 't', 'h', 'w', 'p'
-		char city[64];    // Nome città
+		char type;
+		char city[64];
 	} weather_request_t;
 
 	typedef struct {
@@ -44,7 +44,6 @@
  * ============================================================================
  */
 
-// Add here the signatures of the functions you implement
 	void valida(weather_request_t *req, weather_response_t *resp);
 	float random_float(float min, float max);
 
