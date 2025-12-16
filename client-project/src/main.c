@@ -25,12 +25,10 @@
 #include <ctype.h>
 #include "protocol.h"
 
-// Correzione Warning NO_ERROR: Lo definiamo solo se non esiste già
 #ifndef NO_ERROR
 #define NO_ERROR 0
 #endif
 
-// Correzione Error INET_ADDRSTRLEN: Lo definiamo se manca (su Windows/Winsock1)
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
 #endif
@@ -56,11 +54,11 @@ int main(int argc, char *argv[])
     memset(&response, 0, sizeof(response));
 
 #if defined WIN32
-    // Initialize Winsock
     WSADATA wsa_data;
     int result = WSAStartup(MAKEWORD(2,2), &wsa_data);
-    if (result != NO_ERROR) {
-        printf("Error at WSAStartup()\n");
+    if (result != NO_ERROR)
+    {
+        printf("Errore a WSAStartup()\n");
         return 0;
     }
 #endif
@@ -70,13 +68,14 @@ int main(int argc, char *argv[])
     char request_string[128] = "";
     int richiesta = 0;
 
-    // --- PARSING ARGOMENTI ---
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
             strncpy(server_address_string, argv[++i], 63);
-        } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+        } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc)
+        {
             port = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc) {
+        } else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc)
+        {
             strncpy(request_string, argv[++i], 127);
             richiesta = 1;
         }
@@ -88,7 +87,6 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // --- PARSING RICHIESTA ---
     int i = 0;
     while (request_string[i] == ' ' && request_string[i] != '\0') i++;
 
@@ -103,23 +101,23 @@ int main(int argc, char *argv[])
 
     while (request_string[i] == ' ' && request_string[i] != '\0') i++;
 
-    if (strlen(&request_string[i]) >= 64) {
+    if (strlen(&request_string[i]) >= 64)
+    {
         printf("Errore: Nome città troppo lungo (max 63 caratteri).\n");
         clearwinsock();
         return -1;
     }
     strncpy(request.city, &request_string[i], 63);
 
-    // --- CREAZIONE SOCKET UDP ---
     int my_socket;
     my_socket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (my_socket < 0) {
+    if (my_socket < 0)
+    {
         errorhandler("Creazione del socket fallita.\n");
         clearwinsock();
         return -1;
     }
 
-    // --- RISOLUZIONE DNS (Forward) ---
     struct sockaddr_in sad;
     memset(&sad, 0, sizeof(sad));
     sad.sin_family = AF_INET;
@@ -128,7 +126,8 @@ int main(int argc, char *argv[])
     struct hostent *host;
     host = gethostbyname(server_address_string);
 
-    if (host == NULL) {
+    if (host == NULL)
+    {
         errorhandler("Risoluzione DNS fallita (host non trovato).\n");
         closesocket(my_socket);
         clearwinsock();
@@ -137,7 +136,6 @@ int main(int argc, char *argv[])
 
     memcpy(&sad.sin_addr, host->h_addr_list[0], host->h_length);
 
-    // --- SERIALIZZAZIONE MANUALE ---
     char buffer_out[BUFFER_SIZE];
     int offset = 0;
 
@@ -148,7 +146,6 @@ int main(int argc, char *argv[])
     memcpy(buffer_out + offset, request.city, city_len);
     offset += city_len;
 
-    // --- INVIO ---
     if (sendto(my_socket, buffer_out, offset, 0,
                (struct sockaddr *)&sad, sizeof(sad)) != offset)
     {
@@ -158,14 +155,12 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // --- RICEZIONE ---
     char buffer_in[BUFFER_SIZE];
     struct sockaddr_in from_addr;
     int from_len = sizeof(from_addr);
     int rcv_msg_size;
 
-    if ((rcv_msg_size = recvfrom(my_socket, buffer_in, BUFFER_SIZE, 0,
-                                 (struct sockaddr *)&from_addr, &from_len)) < 0)
+    if ((rcv_msg_size = recvfrom(my_socket, buffer_in, BUFFER_SIZE, 0,(struct sockaddr *)&from_addr, &from_len)) < 0)
     {
         errorhandler("Error receiving data");
         closesocket(my_socket);
@@ -173,7 +168,6 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // --- DESERIALIZZAZIONE MANUALE ---
     offset = 0;
 
     uint32_t net_status;
@@ -189,43 +183,55 @@ int main(int argc, char *argv[])
     net_val = ntohl(net_val);
     memcpy(&response.value, &net_val, sizeof(float));
 
-    // --- OUTPUT CON REVERSE DNS (Compatibile Winsock 1) ---
 
     char host_name[256];
     char server_ip_str[INET_ADDRSTRLEN];
 
-    // 1. Convertiamo IP in stringa usando inet_ntoa (Vecchio standard, compatibile)
     char *temp_ip = inet_ntoa(sad.sin_addr);
     strncpy(server_ip_str, temp_ip, INET_ADDRSTRLEN);
 
-    // 2. Reverse DNS usando gethostbyaddr (Vecchio standard, compatibile)
     struct hostent *he;
     he = gethostbyaddr((char *)&sad.sin_addr, sizeof(sad.sin_addr), AF_INET);
 
-    if (he != NULL) {
+    if (he != NULL)
+    {
         strcpy(host_name, he->h_name);
     } else {
-        strcpy(host_name, server_ip_str); // Fallback su IP se DNS fallisce
+        strcpy(host_name, server_ip_str);
     }
 
     printf("Ricevuto risultato dal server %s (ip %s). ", host_name, server_ip_str);
 
-    if (response.status == 0) {
+    if (response.status == 0)
+    {
         request.city[0] = toupper(request.city[0]);
         printf("%s: ", request.city);
 
-        switch (response.type) {
-            case 't': printf("Temperatura = %.1f°C\n", response.value); break;
-            case 'h': printf("Umidità = %.1f%%\n", response.value); break;
-            case 'w': printf("Vento = %.1f km/h\n", response.value); break;
-            case 'p': printf("Pressione = %.1f hPa\n", response.value); break;
-            default:  printf("Tipo sconosciuto ricevuto.\n");
+        switch (response.type)
+        {
+            case 't':
+            	printf("Temperatura = %.1f°C\n", response.value);
+            break;
+            case 'h':
+            	printf("Umidità = %.1f%%\n", response.value);
+            break;
+            case 'w':
+            	printf("Vento = %.1f km/h\n", response.value);
+            break;
+            case 'p':
+            	printf("Pressione = %.1f hPa\n", response.value);
+            break;
+            default:
+            	printf("Tipo sconosciuto ricevuto.\n");
         }
-    } else if (response.status == 1) {
+    } else if (response.status == 1)
+    {
         printf("Città non disponibile\n");
-    } else if (response.status == 2) {
+    } else if (response.status == 2)
+    {
         printf("Richiesta non valida\n");
-    } else {
+    } else
+    {
         printf("Errore sconosciuto\n");
     }
 

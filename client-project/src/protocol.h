@@ -27,14 +27,14 @@
  */
 
 typedef struct {
-    char type;        // Weather data type: 't', 'h', 'w', 'p'
-    char city[64];    // City name (null-terminated string)
+    char type;
+    char city[64];
 } weather_request_t;
 
 typedef struct {
-    unsigned int status;  // Response status code
-    char type;            // Echo of request type
-    float value;          // Weather data value
+    unsigned int status;
+    char type;
+    float value;
 } weather_response_t;
 
 /*
